@@ -48,6 +48,9 @@ final class CoreAudioRecorder {
     private var renderBuffer: UnsafeMutablePointer<Float32>?
     private var renderBufferSize: UInt32 = 0
 
+    // Streaming callback for real-time audio processing (called from audio thread)
+    var streamingAudioCallback: ((_ samples: UnsafePointer<Float32>, _ frameCount: UInt32, _ sampleRate: Double, _ channelCount: UInt32) -> Void)?
+
     // MARK: - Initialization
 
     init() {}
@@ -541,7 +544,6 @@ final class CoreAudioRecorder {
         inBusNumber: UInt32,
         inNumberFrames: UInt32
     ) -> OSStatus {
-
         guard let audioUnit = audioUnit, isRecording, let renderBuf = renderBuffer else {
             return noErr
         }
@@ -579,6 +581,11 @@ final class CoreAudioRecorder {
 
         if status != noErr {
             return status
+        }
+
+        // Call streaming callback with raw audio samples (for real-time transcription)
+        if let callback = streamingAudioCallback {
+            callback(renderBuf, inNumberFrames, deviceFormat.mSampleRate, channelCount)
         }
 
         // Calculate audio meters from input buffer

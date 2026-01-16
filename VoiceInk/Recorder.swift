@@ -18,6 +18,9 @@ class Recorder: NSObject, ObservableObject {
     private var audioMeterUpdateTask: Task<Void, Never>?
     private var audioRestorationTask: Task<Void, Never>?
     private var hasDetectedAudioInCurrentSession = false
+
+    /// Stored streaming callback - applied when CoreAudioRecorder is created
+    private var pendingStreamingCallback: ((_ samples: UnsafePointer<Float32>, _ frameCount: UInt32, _ sampleRate: Double, _ channelCount: UInt32) -> Void)?
     
     enum RecorderError: Error {
         case couldNotStartRecording
@@ -127,6 +130,12 @@ class Recorder: NSObject, ObservableObject {
             let coreAudioRecorder = CoreAudioRecorder()
             recorder = coreAudioRecorder
 
+            // Apply any pending streaming callback that was set before recording started
+            if let callback = pendingStreamingCallback {
+                coreAudioRecorder.streamingAudioCallback = callback
+                logger.notice("🎙️ Applied pending streaming callback to recorder")
+            }
+
             try coreAudioRecorder.startRecording(toOutputFile: url, deviceID: deviceID)
 
             audioRestorationTask?.cancel()
@@ -179,6 +188,7 @@ class Recorder: NSObject, ObservableObject {
     func stopRecording() {
         audioLevelCheckTask?.cancel()
         audioMeterUpdateTask?.cancel()
+        recorder?.streamingAudioCallback = nil  // Clear streaming callback
         recorder?.stopRecording()
         recorder = nil
         audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
@@ -188,6 +198,15 @@ class Recorder: NSObject, ObservableObject {
             await playbackController.resumeMedia()
         }
         deviceManager.isRecordingActive = false
+    }
+
+    /// Sets a callback to receive real-time audio samples for streaming transcription.
+    /// The callback is invoked on the audio thread - do not perform blocking operations.
+    /// Note: The callback is stored and applied when recording starts (CoreAudioRecorder is created lazily).
+    func setStreamingAudioCallback(_ callback: ((_ samples: UnsafePointer<Float32>, _ frameCount: UInt32, _ sampleRate: Double, _ channelCount: UInt32) -> Void)?) {
+        pendingStreamingCallback = callback
+        // Also apply immediately if recorder already exists
+        recorder?.streamingAudioCallback = callback
     }
 
     private func handleRecordingError(_ error: Error) async {

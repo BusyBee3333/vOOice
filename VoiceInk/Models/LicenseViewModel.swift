@@ -19,9 +19,11 @@ class LicenseViewModel: ObservableObject {
     private let polarService = PolarService()
     private let userDefaults = UserDefaults.standard
     private let licenseManager = LicenseManager.shared
+    private var isInitializing = true
 
     init() {
         loadLicenseState()
+        isInitializing = false
     }
 
     func startTrial() {
@@ -29,7 +31,10 @@ class LicenseViewModel: ObservableObject {
         if licenseManager.trialStartDate == nil {
             licenseManager.trialStartDate = Date()
             licenseState = .trial(daysRemaining: trialPeriodDays)
-            NotificationCenter.default.post(name: .licenseStatusChanged, object: nil)
+            // Don't post notification during initialization to prevent recursive loop
+            if !isInitializing {
+                NotificationCenter.default.post(name: .licenseStatusChanged, object: nil)
+            }
         }
     }
 
