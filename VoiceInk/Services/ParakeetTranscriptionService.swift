@@ -141,7 +141,7 @@ class ParakeetTranscriptionService: TranscriptionService {
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first!
         let appDirectory = applicationSupportURL.appendingPathComponent("FluidAudio", isDirectory: true)
-        return appDirectory.appendingPathComponent("Models/parakeet-eou-streaming/160ms", isDirectory: true)
+        return appDirectory.appendingPathComponent("Models/parakeet-eou-streaming/320ms", isDirectory: true)
     }
 
     /// Downloads EOU models if not already present
@@ -150,10 +150,10 @@ class ParakeetTranscriptionService: TranscriptionService {
         let encoderPath = modelsDir.appendingPathComponent("streaming_encoder.mlmodelc")
 
         if !FileManager.default.fileExists(atPath: encoderPath.path) {
-            logger.notice("🎙️ Downloading Parakeet EOU 160ms models for streaming preview...")
+            logger.notice("🎙️ Downloading Parakeet EOU 320ms models for streaming preview...")
             let baseDir = modelsDir.deletingLastPathComponent().deletingLastPathComponent()
-            try await DownloadUtils.downloadRepo(.parakeetEou160, to: baseDir)
-            logger.notice("🎙️ EOU 160ms models downloaded successfully")
+            try await DownloadUtils.downloadRepo(.parakeetEou320, to: baseDir)
+            logger.notice("🎙️ EOU 320ms models downloaded successfully")
         }
 
         return modelsDir
@@ -172,10 +172,10 @@ class ParakeetTranscriptionService: TranscriptionService {
         // Download EOU models if needed
         let modelsDir = try await ensureEouModelsDownloaded()
 
-        // Create StreamingEouAsrManager with 160ms chunks for lowest latency preview
-        // In HYBRID mode: streaming is just for visual feedback, batch provides accuracy
+        // Create StreamingEouAsrManager with 320ms chunks for accuracy
+        // In HYBRID mode: streaming provides visual feedback, batch provides final accuracy
         // EOU debounce of 1280ms means end-of-utterance detection after ~1.3s of silence
-        let manager = StreamingEouAsrManager(chunkSize: .ms160, eouDebounceMs: 1280)
+        let manager = StreamingEouAsrManager(chunkSize: .ms320, eouDebounceMs: 1280)
         streamingEouManager = manager
 
         // Load Parakeet EOU models
